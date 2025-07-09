@@ -64,7 +64,7 @@ const createUser = (req, res) => {
   }
 
   // 🔒 Hasher le mot de passe
-  bcrypt
+  return bcrypt
     .hash(password, 10)
     .then((hashedPassword) =>
       User.create({
