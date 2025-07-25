@@ -4,6 +4,7 @@ const cors = require("cors");
 const helmet = require("helmet");
 
 const mainRouter = require("./routes/index");
+const errorHandler = require("./middlewares/error-handler");
 
 const app = express();
 const { PORT = 3001 } = process.env;
@@ -26,14 +27,16 @@ app.use(express.json());
 // Utiliser le routeur principal
 app.use("/", mainRouter);
 
+app.use(errorHandler); //Middleware gestion des erreurs
+
 // Middleware gestion des erreurs
 // eslint-disable-next-line no-unused-vars
-app.use((err, req, res, next) => {
-  const { statusCode = 500, message } = err;
-  res.status(statusCode).json({
-    message: statusCode === 500 ? "Internal Server Error" : message,
-  });
-});
+// app.use((err, req, res, next) => {
+//   const { statusCode = 500, message } = err;
+//   res.status(statusCode).json({
+//     message: statusCode === 500 ? "Internal Server Error" : message,
+//   });
+// });
 
 // Démarrer le serveur
 app.listen(PORT, () => {

@@ -2,21 +2,31 @@ const mongoose = require("mongoose");
 const ClothingItem = require("../models/clothingItem");
 
 const {
-  BAD_REQUEST,
-  NOT_FOUND,
-  SERVER_ERROR,
-  FORBIDDEN,
-  UNAUTHORIZED,
-  NOT_FOUND_MESSAGE,
-  SERVER_ERROR_MESSAGE,
-} = require("../utils/errors");
+  BadRequestError,
+  ForbiddenError,
+  NotFoundError,
+  UnauthorizedError,
+} = require("../errors");
+
+function handleMongooseError(err, next) {
+  if (err.name === "ValidationError") {
+    return next(new BadRequestError(err.message));
+  }
+  if (err.name === "CastError") {
+    return next(new BadRequestError("Invalid item ID."));
+  }
+  // if (err.name === "DocumentNotFoundError") {
+  //   return next(new NotFoundError("Document not found"));
+  // }
+  return next(err);
+}
 
 // Créer un vêtement
-const createItem = (req, res) => {
+const createItem = (req, res, next) => {
   if (!req.user || !req.user._id) {
-    return res
-      .status(UNAUTHORIZED)
-      .json({ message: "Unauthorized: no user found in request" });
+    return next(
+      new UnauthorizedError("Unauthorized: no user found in request")
+    );
   }
 
   const { name, weather, imageUrl } = req.body;
@@ -24,29 +34,18 @@ const createItem = (req, res) => {
 
   return ClothingItem.create({ name, weather, imageUrl, owner })
     .then((item) => res.status(201).json(item))
-    .catch((err) => {
-      console.error("CreateItem Error:", err);
-      if (err.name === "ValidationError") {
-        const messages = Object.values(err.errors).map(
-          (error) => error.message
-        );
-        return res.status(BAD_REQUEST).json({ message: messages.join(", ") });
-      }
-      return res.status(SERVER_ERROR).json({ message: SERVER_ERROR_MESSAGE });
-    });
+    .catch((err) => handleMongooseError(err, next));
 };
 
 // Obtenir tous les vêtements
-const getItems = (req, res) =>
+const getItems = (req, res, next) =>
   ClothingItem.find({})
     .populate("owner likes")
     .then((items) => res.json(items))
-    .catch(() =>
-      res.status(SERVER_ERROR).json({ message: SERVER_ERROR_MESSAGE })
-    );
+    .catch(next);
 
 // Mettre à jour l’image d’un vêtement
-const updateItem = (req, res) => {
+const updateItem = (req, res, next) => {
   const { itemId } = req.params;
   const { imageUrl } = req.body;
 
@@ -55,79 +54,41 @@ const updateItem = (req, res) => {
     { $set: { imageUrl } },
     { new: true, runValidators: true }
   )
-    .orFail(() => {
-      const error = new Error(NOT_FOUND_MESSAGE);
-      error.name = "DocumentNotFoundError";
-      throw error;
-    })
+    .orFail(() => new NotFoundError("Item not found"))
     .then((item) => res.json(item))
-    .catch((err) => {
-      if (err.name === "DocumentNotFoundError") {
-        return res.status(NOT_FOUND).json({ message: NOT_FOUND_MESSAGE });
-      }
-      if (err.name === "ValidationError") {
-        const messages = Object.values(err.errors).map(
-          (error) => error.message
-        );
-        return res.status(BAD_REQUEST).json({ message: messages.join(", ") });
-      }
-      if (err.name === "CastError") {
-        return res.status(BAD_REQUEST).json({ message: "Invalid item ID." });
-      }
-      return res.status(SERVER_ERROR).json({ message: SERVER_ERROR_MESSAGE });
-    });
+    .catch((err) => handleMongooseError(err, next));
 };
 
 // Supprimer un vêtement
-const deleteItem = (req, res) => {
+const deleteItem = (req, res, next) => {
   const { itemId } = req.params;
   const userId = req.user._id;
 
   if (!mongoose.Types.ObjectId.isValid(itemId)) {
-    return res.status(BAD_REQUEST).json({ message: "Invalid item ID." });
+    return next(new BadRequestError("Invalid item ID."));
   }
 
   return ClothingItem.findById(itemId)
-    .orFail(() => {
-      const err = new Error("Item not found");
-      err.name = "DocumentNotFoundError";
-      throw err;
-    })
+    .orFail(() => new NotFoundError("Item not found"))
     .then((item) => {
       if (item.owner.toString() !== userId) {
-        return res
-          .status(FORBIDDEN)
-          .json({ message: "Forbidden: Not the owner" });
+        return next(new ForbiddenError("Forbidden: Not the owner"));
       }
       return item.deleteOne().then(() => res.json({ message: "Item deleted" }));
     })
-    .catch((err) => {
-      if (err.name === "DocumentNotFoundError") {
-        return res.status(NOT_FOUND).json({ message: "Item not found" });
-      }
-      if (err.name === "CastError") {
-        return res.status(BAD_REQUEST).json({ message: "Invalid item ID" });
-      }
-      return res
-        .status(SERVER_ERROR)
-        .json({ message: "Internal Server Error" });
-    });
+    .catch((err) => handleMongooseError(err, next));
 };
 
 // Ajouter un like
-const likeItem = (req, res) => {
+const likeItem = (req, res, next) => {
   const { itemId } = req.params;
 
   if (!mongoose.Types.ObjectId.isValid(itemId)) {
-    return res.status(BAD_REQUEST).json({ message: "Invalid item ID." });
+    return next(new BadRequestError("Invalid item ID."));
   }
 
   return ClothingItem.findById(itemId)
-    .orFail(() => {
-      const error = new Error(NOT_FOUND_MESSAGE);
-      error.name = "DocumentNotFoundError";
-      throw error;
-    })
+    .orFail(() => new NotFoundError("Item not found"))
     .then((item) => {
       if (!item.likes.includes(req.user._id)) {
         item.likes.push(req.user._id);
@@ -140,34 +101,19 @@ const likeItem = (req, res) => {
             .then((populatedItem) => res.json(populatedItem))
         );
     })
-    .catch((err) => {
-      if (err.name === "ValidationError") {
-        return res.status(BAD_REQUEST).json({ message: err.message });
-      }
-      if (err.name === "DocumentNotFoundError") {
-        return res.status(NOT_FOUND).json({ message: NOT_FOUND_MESSAGE });
-      }
-      if (err.name === "CastError") {
-        return res.status(BAD_REQUEST).json({ message: "Invalid item ID." });
-      }
-      return res.status(SERVER_ERROR).json({ message: SERVER_ERROR_MESSAGE });
-    });
+    .catch((err) => handleMongooseError(err, next));
 };
 
 // Retirer un like
-const unlikeItem = (req, res) => {
+const unlikeItem = (req, res, next) => {
   const { itemId } = req.params;
 
   if (!mongoose.Types.ObjectId.isValid(itemId)) {
-    return res.status(BAD_REQUEST).json({ message: "Invalid item ID." });
+    return next(new BadRequestError("Invalid item ID."));
   }
 
   return ClothingItem.findById(itemId)
-    .orFail(() => {
-      const error = new Error(NOT_FOUND_MESSAGE);
-      error.name = "DocumentNotFoundError";
-      throw error;
-    })
+    .orFail(() => new NotFoundError("Item not found"))
     .then((item) => {
       item.likes.pull(req.user._id);
       return item
@@ -178,18 +124,7 @@ const unlikeItem = (req, res) => {
             .then((populatedItem) => res.json(populatedItem))
         );
     })
-    .catch((err) => {
-      if (err.name === "ValidationError") {
-        return res.status(BAD_REQUEST).json({ message: err.message });
-      }
-      if (err.name === "DocumentNotFoundError") {
-        return res.status(NOT_FOUND).json({ message: NOT_FOUND_MESSAGE });
-      }
-      if (err.name === "CastError") {
-        return res.status(BAD_REQUEST).json({ message: "Invalid item ID." });
-      }
-      return res.status(SERVER_ERROR).json({ message: SERVER_ERROR_MESSAGE });
-    });
+    .catch((err) => handleMongooseError(err, next));
 };
 
 module.exports = {
