@@ -4,6 +4,7 @@ const cors = require("cors");
 const helmet = require("helmet");
 
 const mainRouter = require("./routes/index");
+const { errors } = require("celebrate");
 const errorHandler = require("./middlewares/error-handler");
 
 const app = express();
@@ -26,7 +27,7 @@ app.use(express.json());
 
 // Utiliser le routeur principal
 app.use("/", mainRouter);
-
+app.use(errors());
 app.use(errorHandler); //Middleware gestion des erreurs
 
 // Middleware gestion des erreurs

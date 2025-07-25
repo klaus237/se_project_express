@@ -8,9 +8,14 @@ const { login, createUser } = require("../controllers/users");
 
 const { NOT_FOUND, NOT_FOUND_MESSAGE } = require("../utils/errors");
 
+const {
+  validateUserBody,
+  validateLogin,
+} = require("../middlewares/validation");
+
 // Auth routes
-router.post("/signin", login);
-router.post("/signup", createUser);
+router.post("/signin", validateLogin, login);
+router.post("/signup", validateUserBody, createUser);
 
 // Main routes
 router.use("/users", userRouter);
