@@ -57,3 +57,8 @@ npm run start
 ```bash
 — npm run dev
 ```
+
+## Deployment
+
+- Frontend: https://wear.jumpingcrab.com
+- Backend API: https://api.wear.jumpingcrab.com
