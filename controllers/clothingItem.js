@@ -15,9 +15,7 @@ function handleMongooseError(err, next) {
   if (err.name === "CastError") {
     return next(new BadRequestError("Invalid item ID."));
   }
-  // if (err.name === "DocumentNotFoundError") {
-  //   return next(new NotFoundError("Document not found"));
-  // }
+
   return next(err);
 }
 

@@ -3,9 +3,10 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 const helmet = require("helmet");
-
-const mainRouter = require("./routes/index");
 const { errors } = require("celebrate");
+const rateLimiter = require("./middlewares/rateLimiter");
+const mainRouter = require("./routes/index");
+
 const errorHandler = require("./middlewares/error-handler");
 const { requestLogger, errorLogger } = require("./middlewares/logger");
 
@@ -27,7 +28,7 @@ mongoose
 app.use(helmet());
 app.use(cors());
 app.use(express.json());
-
+app.use(rateLimiter);
 app.use(requestLogger);
 
 app.get("/crash-test", () => {
@@ -39,16 +40,7 @@ app.get("/crash-test", () => {
 app.use("/", mainRouter);
 app.use(errorLogger);
 app.use(errors());
-app.use(errorHandler); //Middleware gestion des erreurs
-
-// Middleware gestion des erreurs
-// eslint-disable-next-line no-unused-vars
-// app.use((err, req, res, next) => {
-//   const { statusCode = 500, message } = err;
-//   res.status(statusCode).json({
-//     message: statusCode === 500 ? "Internal Server Error" : message,
-//   });
-// });
+app.use(errorHandler);
 
 // Démarrer le serveur
 app.listen(PORT, () => {

@@ -25,8 +25,6 @@ function handleMongooseError(err, next) {
 const createUser = (req, res, next) => {
   const { name, avatar, email, password } = req.body;
 
-  console.log("📦 req.body = ", req.body);
-
   // ✅ Vérifier que tous les champs obligatoires sont présents
   if (!name || !email || !password || !avatar) {
     return next(
@@ -36,7 +34,7 @@ const createUser = (req, res, next) => {
     );
   }
 
-  // 🔒 Hasher le mot de passe
+  //  Hasher le mot de passe
   return bcrypt
     .hash(password, 10)
     .then((hashedPassword) =>
@@ -50,7 +48,6 @@ const createUser = (req, res, next) => {
     .then((user) => {
       const userWithoutPassword = user.toObject();
       delete userWithoutPassword.password;
-      console.log("User created:", userWithoutPassword);
       res.status(201).send(userWithoutPassword);
     })
     .catch((err) => {
